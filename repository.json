@@ -6,7 +6,7 @@
 
         {
             "name": "sublime_kat",
-            "details": "https://github.com/zjb861107/sublime_kat",
+            "details": "https://github.com/zjb861107/sublime_kat/tree/master/kat",
             "description": "xtest plugin",
             "issues": "https://github.com/TencentXTest/sublime_kat/issues",
             "releases": [{
