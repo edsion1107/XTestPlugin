@@ -1,9 +1,0 @@
-<snippet>
-	<content><![CDATA[
-endApp(${1:PackageName})
-sleep(2000)
-]]></content>
-	<tabTrigger>endApp</tabTrigger>
-	<scope>source.lua</scope>
-	<description>结束应用</description>
-</snippet>

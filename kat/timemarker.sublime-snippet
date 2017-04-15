@@ -1,8 +1,0 @@
-<snippet>
-	<content><![CDATA[
-TimeMarker(CaseN)
-]]></content>
-	<tabTrigger>timemarker</tabTrigger>
-	<scope>source.lua</scope>
-	<description>生成时间戳命名图片</description>
-</snippet>
