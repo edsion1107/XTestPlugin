@@ -1,0 +1,13 @@
+[{
+    "caption": "XTestPlugin",
+    "id": "main",
+    "children": [{
+        "id": "example",
+        "caption": "example",
+        "command": "example"
+    }, {
+        "id": "doctor",
+        "caption": "环境检查",
+        "command": "doctor"
+    }]
+}]
