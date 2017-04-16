@@ -1,9 +1,9 @@
 [{
     "caption": "XTestPlugin",
-    "id": "main",
+    "id": "XTestPlugin-main",
     "children": [{
         "id": "example",
-        "caption": "example",
+        "caption": "example_command",
         "command": "example"
     }, {
         "id": "doctor",
