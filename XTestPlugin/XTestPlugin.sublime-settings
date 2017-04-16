@@ -1,5 +1,9 @@
 {
     "adb":"/Users/edsion/android-sdk-macosx/platform-tools/adb",
-    "files_white_list":[],
-    "files_black_list":[]
+
+    /*
+        push和pull时，支持使用文件名的黑白名单（使用正则表达式），且白名单优先级更高
+    */
+    "files_white_list":[".lua$",".apk$",".jpg$",".png$",".so$",".txt$",".jar$",".xls$"],
+    "files_black_list":[".DS_Store$","Thumbs.db","Desktop.ini"]
 }
