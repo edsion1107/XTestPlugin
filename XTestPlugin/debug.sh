@@ -5,7 +5,7 @@
 
 local=.
 remote=~/Library/Application\ Support/Sublime\ Text\ 3/Packages/XTestPlugin/
-
+cp -f XTestPlugin.json XTestPlugin.sublime-settings
 rsync -a ${local} "${remote}"
 
 # 启动sublime（需命令行支持）

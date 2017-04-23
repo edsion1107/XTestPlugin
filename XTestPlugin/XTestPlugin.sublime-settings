@@ -1,25 +1,41 @@
 {
-    // adb路径，当路径无效时，使用内置adb（TODO）
-    "adb":"",
-
-    /*
-        push和pull时，支持使用文件名的黑白名单（使用正则表达式），且白名单优先级更高
-    */
-    "files_white_list":[".lua$",".apk$",".jpg$",".png$",".so$",".txt$",".jar$",".xls$"],
-    "files_black_list":[".DS_Store$","Thumbs.db","Desktop.ini"],
-
-    // xtest脚本路径（手机端）
-    "xtest_remote":"/sdcard/kat/",
-
-    // xtest包名
-    "xtest_package_name":"com.tencent.utest.recorder",
-
-    // 启动xtest回放的activity
-    "xtest_replay_activity":"com.kunpeng.kat.base.KatInstrumentationTestRunner",
-
-    // xtest回放的类名
-    "xtest_replay_class":"com.kunpeng.kat.base.TestMainInstrumentation",
-
-    // xtest脚本回放超时时间(单位：秒)
-    "xtest_timeout": 3600
+  // adb路径，当路径无效时，使用内置adb
+  "adb": "",
+  /*
+      push和pull时，支持使用文件名的黑白名单（使用正则表达式），且白名单优先级更高
+  */
+  "files_white_list": [
+    ".lua$",
+    ".apk$",
+    ".jpg$",
+    ".png$",
+    ".so$",
+    ".txt$",
+    ".jar$",
+    ".xls$"
+  ],
+  "files_black_list": [
+    ".DS_Store$",
+    "Thumbs.db",
+    "Desktop.ini"
+  ],
+  //使用的回放工具是xtest
+  "is_xtest": true,
+  "xtest": {
+    //包名
+    "package_name": "com.tencent.utest.recorder",
+    //回放指定的类名
+    "class": "com.kunpeng.kat.base.TestMainInstrumentation",
+    //回放指定的activity
+    "activity": "com.kunpeng.kat.base.KatInstrumentationTestRunner",
+    //脚本路径（手机端）
+    "remote_path": "/sdcard/kat/",
+    //脚本运行最大时长
+    "time_out": 3600
+  },
+  "kat": {
+    "package_name": "com.kunpeng.kapalai.kat",
+    "remote_path": "/sdcard/kat/",
+    "time_out": 3600
+  }
 }
