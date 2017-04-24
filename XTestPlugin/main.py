@@ -1,11 +1,13 @@
 # -*- coding: utf8 -*-
 import os
 import re
+import sys
+import time
 import sublime
 import sublime_plugin
 import subprocess
-import traceback
-import threading
+from tempfile import TemporaryFile
+from multiprocessing import Pool, Process
 from .errors import *
 
 SETTINGS = sublime.load_settings('XTestPlugin.sublime-settings')
@@ -51,6 +53,21 @@ def adb_command(command, timeout=5):
                                    timeout=timeout, shell=True)
 
 
+def adb_shell_tail(file_path, timeout=10):
+    start = time.time()
+    with TemporaryFile() as tmp:
+        p = subprocess.Popen(args='adb shell tail -f {0}'.format(file_path), stdout=tmp, stderr=subprocess.PIPE,
+                             universal_newlines=True, shell=True)
+        while time.time() - start < timeout:
+            for line in tmp:
+                print(line)
+            if p.poll():
+                break
+        else:
+            p.terminate()
+    print('finished')
+
+
 def adb_devices():
     # adb_command('start-server')
     stdout = adb_command('devices')
@@ -90,7 +107,7 @@ def adb_push(local_file, remote_file=None):
     # TODO:timeout按照（实测000）2M/s的速度计算
     assert os.path.exists(local_file)
     speed = 2 * 1024 * 1024  # usb传输速度，默认按照usb2.0计算，实测2M/s【另外可参考：https://www.zhihu.com/question/20186057】
-    time_out = int(os.stat(local_file).st_size / speed) + 1
+    time_out = int(os.stat(local_file).st_size / speed) + 3
     if not remote_file:
         remote_file = '/sdcard/'
     return adb_command('push "{0}" "{1}"'.format(local_file, remote_file), timeout=time_out)
@@ -128,6 +145,7 @@ def push_files(file_list, remote_path=None):
     white = filter(lambda x: filter_by_re(x, white_list), file_list)
     black = filter(lambda x: filter_by_re(x, black_list), file_list)
     files = set(file_list) - set(black) | set(white)
+
     for i in files:
         adb_push(i, remote_path)
 
@@ -147,8 +165,10 @@ class ExampleCommand(sublime_plugin.WindowCommand):
             return
         if SETTINGS.get("is_xtest"):
             params = SETTINGS.get('xtest')
+            command = 'shell "log -i \'start\' && am instrument -e class {class_name} -w {package_name}/{activity}"'
         else:
             params = SETTINGS.get('kat')
+            command = 'shell "log -i \'start\' && am instrument -w {package_name}/{activity}"'
 
         if not adb_shell_package_is_install(params.get('package_name')):  # 检查XTest是否安装
             return
@@ -169,16 +189,24 @@ class ExampleCommand(sublime_plugin.WindowCommand):
         files = list_dir(files_root_path)
         push_files(file_list=files, remote_path=params.get('remote_path'))
         #
-        # TODO: 根据paramer.lua中的包名，判断apk是否安装
+        # TODO: 根据paramter.lua中的包名，判断apk是否安装
         force_stop()
-        # start_xtest()
-        cmd = 'shell "log -i \'start\' && am instrument -e class com.kunpeng.kat.base.TestMainInstrumentation -w com.tencent.utest.recorder/com.kunpeng.kat.base.KatInstrumentationTestRunner"'
-        xtest = threading.Thread(target=adb_command, args=(cmd, 3600))
-        # xtest.daemon = True
-        xtest.setDaemon(True)
-        xtest.start()
+        command = command.format(
+            class_name=params.get("class"), package_name=params.get("package_name"), activity=params.get("activity")
+        )
+        # run_command = threading.Thread(target=adb_command,
+        #                                kwargs={'command': command, 'timeout': params.get('time_out')})
 
+        run_command = Process(target=adb_command, kwargs={'command': command, 'timeout': params.get('time_out')},
+                              daemon=True)
+        print('start running')
+        run_command.start()
+        # TODO : 检测到kat退出，则强制结束run_command进程
         # TODO： showlog方案改进：通过tail -f 来实时显示日志.检测xtest/kat是否运行
+        # cat_log = Process(target=adb_command, kwargs={'command': 'shell tail -f /sdcard/kat/Result/Log.txt',
+        #                                               'timeout': params.get('time_out')},daemon=False)
+        # cat_log.start()
+        # adb_shell_tail('/sdcard/kat/Result/Log.txt', timeout=params.get('time_out'))
 
 
 class DoctorCommand(sublime_plugin.TextCommand):

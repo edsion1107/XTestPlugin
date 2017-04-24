@@ -20,7 +20,7 @@
     "Desktop.ini"
   ],
   //使用的回放工具是xtest
-  "is_xtest": true,
+  "is_xtest": false,
   "xtest": {
     //包名
     "package_name": "com.tencent.utest.recorder",
@@ -35,6 +35,8 @@
   },
   "kat": {
     "package_name": "com.kunpeng.kapalai.kat",
+    "class": "com.kunpeng.kat.base.TestMainInstrumentation",
+    "activity": "com.kunpeng.kat.base.KatInstrumentationTestRunner",
     "remote_path": "/sdcard/kat/",
     "time_out": 3600
   }
