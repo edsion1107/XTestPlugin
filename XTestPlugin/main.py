@@ -1,14 +1,10 @@
 # -*- coding: utf8 -*-
 import os
 import re
-import io
 import time
-import signal
 import subprocess
-from tempfile import NamedTemporaryFile
+import threading
 from subprocess import TimeoutExpired
-from multiprocessing import Process
-from multiprocessing.sharedctypes import Array
 import sublime
 import sublime_plugin
 from .errors import *
@@ -56,103 +52,73 @@ def adb_command(command, timeout=5):
                                    timeout=timeout, shell=True)
 
 
-def adb_cmd(command, time_out=10, is_daemon=False):
-    default_temp_file = 'temp.txt'
-    if is_daemon:
-        output = NamedTemporaryFile()
-    else:
-        output = subprocess.PIPE
-
-    def run():
-        p = subprocess.Popen('adb {0}'.format(command), stdout=output, stderr=subprocess.STDOUT,
-                             cwd=os.path.dirname(__file__), universal_newlines=False, bufsize=1, shell=True)
-        print(p.args)
-
-        def handler(sig, frame):
-            print('>Got signal: ', sig)
-            p.terminate()
-
-        try:
-            signal.signal(signal.SIGTERM, handler)
-            print('>pid:{0}, return code:{1}'.format(p.pid, p.returncode))
-            if is_daemon:
-                p.wait(timeout=time_out)
-            else:
-                res = p.communicate(timeout=time_out)[0]
-                with open(default_temp_file, 'wb') as f:
-                    f.write(res)
-        except (KeyboardInterrupt, TimeoutExpired):
-            print('>canceled or timeout')
-            p.terminate()  # 通过signal来处理退出逻辑
-        finally:
-            print('>>>pid:{0}, return code:{1}'.format(p.pid, p.returncode))
-
-    t = Process(target=run, daemon=is_daemon)
+def adb_cmd(command, time_out=10):
+    p = subprocess.Popen('adb {0}'.format(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         cwd=os.path.dirname(__file__), universal_newlines=False, bufsize=1, shell=True)
+    # print(p.args)
     try:
-        t.start()
-        print('name:{0}, pid:{1}, is alive:{2}'.format(t.name, t.pid, t.is_alive()))
-        if is_daemon:
-            pass
-        else:
-            t.join(time_out)
-    except KeyboardInterrupt:
-        print('Canceled!')
-        t.terminate()
-    finally:
-        print('name:{0}, pid:{1}, is alive:{2}'.format(t.name, t.pid, t.is_alive()))
-        if is_daemon:
-            return output.name
-        else:
-            return default_temp_file
+        # print('>pid:{0}, return code:{1}'.format(p.pid, p.returncode))
+        res = p.communicate(timeout=time_out)[0]
+    except (KeyboardInterrupt, TimeoutExpired):
+        print('>canceled or timeout')
+        p.terminate()  # 通过signal来处理退出逻辑
+    else:
+        if res:
+            return res.decode()
+            # finally:
+            #     print('>pid:{pid}, return_code:{return_code}'.format(pid=p.pid, return_code=p.returncode))
 
 
 def adb_devices():
     # adb_command('start-server')
     # stdout = adb_command('devices')
-    res = adb_cmd('devices', time_out=10, is_daemon=False)
+    res = adb_cmd('devices', time_out=10)
     devices = {}
-    with open(res, 'r') as f:
-        for line in f:
-            line = line.strip().split('\t')
-            if len(line) == 2:
-                devices[line[0]] = line[1]
-            else:
-                pass
-        # TODO:判断状态为device，offline的不记在内
-        if len(devices) == 0:
-            sublime.error_message(f.read())
-            return None
+    for line in res.split('\n'):
+        line = line.strip().split('\t')
+        if len(line) == 2:
+            devices[line[0]] = line[1]
         else:
-            print(devices)
-            return devices
+            pass
+    # TODO:判断状态为device，offline的不记在内
+    if len(devices) == 0:
+        sublime.error_message(res)
+        return None
+    else:
+        print(devices)
+        return devices
 
 
 def adb_shell_package_is_install(package_name):
     # stdout = adb_command('shell pm list packages')
-    res = adb_cmd('shell "pm list packages"', time_out=5, is_daemon=False)
-    # 按照换行符'\n'切割为列表，再使用strip()去掉可能存在的'\r'
+    res = adb_cmd('shell "pm list packages"', time_out=5)
+    # 按照换行符'\n'切割为列表，再使用strip()去掉可能存在的'\r'。可以避免不同平台换行不一致的问题
     result = False
-    with open(res, 'r') as f:
-        for line in f:
-            line = line.strip().replace('package:', '')
-            if package_name in line:
-                result = True
-                break
-            else:
-                continue
+    for line in res.split('\n'):
+        line = line.strip().replace('package:', '')
+        if package_name in line:
+            result = True
+            break
         else:
-            sublime.error_message('"{0}" not installed!'.format(package_name))
-            print(f.read())
+            continue
+    else:
+        sublime.error_message('"{0}" not installed!'.format(package_name))
+        print(res)
     return result
 
 
 def adb_shell_ps_process_is_running(proc):
-    stdout = adb_cmd('shell ps', time_out=5, is_daemon=False).decode()
-    process = [i for i in stdout.split('\n') if proc in i]
-    if len(process) > 0:
-        return True
+    res = adb_cmd('shell ps', time_out=5)
+    result = False
+    if res:
+        for line in res.split('\n'):
+            line = line.strip()
+            if proc in line:
+                result = True
+                break
     else:
-        return False
+        result = None
+    return result
 
 
 def adb_push(local_file, remote_file=None):
@@ -163,7 +129,7 @@ def adb_push(local_file, remote_file=None):
     if not remote_file:
         remote_file = '/sdcard/'
     # return adb_command('push "{0}" "{1}"'.format(local_file, remote_file), timeout=time_out)
-    return adb_cmd('push "{0}" "{1}"'.format(local_file, remote_file), time_out=time_out, is_daemon=False)
+    return adb_cmd('push "{0}" "{1}"'.format(local_file, remote_file), time_out=time_out)
 
 
 def multiple_adb():
@@ -199,18 +165,56 @@ def push_files(file_list, remote_path=None):
     black = filter(lambda x: filter_by_re(x, black_list), file_list)
     files = set(file_list) - set(black) | set(white)
 
-    # TODO：改为进程池
+    # TODO：可以改为进程池，看能否提高性能
     for i in files:
-        print(adb_push(i, remote_path))
+        adb_push(i, remote_path)
+
+
+def show_log_and_error(params):
+    start = time.time()
+    params.get("remote_path")
+    remote_result_path = os.path.join(params.get("remote_path"), 'Result')
+    logfile_last_line = None
+    errorfile_last_line = None
+
+    def print_current_lines_and_get_line_no(text, last_line=None, line_prefix=None):
+        if text:
+            if 'No such file or directory' in text and 'cat' in text:
+                return None
+            lines = text.split('\n')
+            if lines[-1].strip() == '':
+                lines = lines[:-1]
+            if last_line:
+                lines = lines[lines.index(last_line) + 1:]
+            for line in lines:
+                print('{prefix}{line}'.format(prefix=line_prefix, line=line.strip()))
+                last_line = line
+            return last_line
+        else:
+            return None
+
+    print('waiting for start...')
+    while time.time() - start < params.get('time_out'):
+        if time.time() - start < 10:  # 留10秒延迟，给XTest/kat初始化（直接sleep会造成sublime阻塞）
+            continue
+
+        log_txt = adb_cmd('shell cat {0}'.format(os.path.join(remote_result_path, 'Log.txt')), time_out=10)
+        logfile_last_line = print_current_lines_and_get_line_no(log_txt, logfile_last_line, '[Log.txt]')
+
+        error_txt = adb_cmd('shell cat {0}'.format(os.path.join(remote_result_path, 'error.txt')), time_out=10)
+        errorfile_last_line = print_current_lines_and_get_line_no(error_txt, errorfile_last_line, '[error.txt]')
+
+        if not adb_shell_ps_process_is_running(params.get("package_name")):
+            print('Main Process exited, Test End')
+            print(threading.enumerate())
+            break
 
 
 def force_stop():
     # adb_command('shell service call activity 79 s16 {0}'.format(SETTINGS.get('xtest').get('package_name')))
-    adb_cmd('shell service call activity 79 s16 {0}'.format(SETTINGS.get('xtest').get('package_name')), time_out=10,
-            is_daemon=False)
+    adb_cmd('shell service call activity 79 s16 {0}'.format(SETTINGS.get('xtest').get('package_name')), time_out=10)
     # adb_command('shell service call activity 79 s16 {0}'.format(SETTINGS.get('kat').get('package_name')))
-    adb_cmd('shell service call activity 79 s16 {0}'.format(SETTINGS.get('kat').get('package_name')), time_out=10,
-            is_daemon=False)
+    adb_cmd('shell service call activity 79 s16 {0}'.format(SETTINGS.get('kat').get('package_name')), time_out=10)
 
 
 class ExampleCommand(sublime_plugin.WindowCommand):
@@ -219,7 +223,7 @@ class ExampleCommand(sublime_plugin.WindowCommand):
         print(self.__class__.__name__)
         self.window.set_sidebar_visible(True)  # 设置打开sidebar
         init_adb()
-        adb_cmd(command='kill-server', time_out=10, is_daemon=False)  # 【debug】清理进程，防止干扰本次测试。之后可能需要注释掉防止影响多设备运行
+        adb_cmd(command='kill-server', time_out=10)  # 【debug】清理进程，防止干扰本次测试。之后可能需要注释掉防止影响多设备运行
         if adb_devices() is None:  # 检查是否有设备连接
             return
         if SETTINGS.get("is_xtest"):
@@ -249,47 +253,16 @@ class ExampleCommand(sublime_plugin.WindowCommand):
         push_files(file_list=files, remote_path=params.get('remote_path'))
 
         # TODO: 根据paramter.lua中的包名，判断apk是否安装
-        force_stop()
-        print(adb_shell_ps_process_is_running(params.get("package_name")))
+        force_stop()  # 可以同时杀掉XTest/kat的进程（仅启动app但未运行自动化测试也会被kill），这样后面才能根据ps结果判断是否在运行
+
         command = command.format(class_name=params.get("class"), package_name=params.get("package_name"),
                                  activity=params.get("activity"), )
-        # run_command = threading.Thread(target=adb_command,
-        #                                kwargs={'command': command, 'timeout': params.get('time_out')})
 
-        # run_command = Process(target=adb_command, kwargs={'command': command, 'timeout': params.get('time_out')},
-        #                       daemon=True)
-        # print('start running')
-        # run_command.start()
-
-        # run_test_proc, run_test_stdout = adb_cmd(command=command, time_out=params.get('time_out'), is_daemon=True)
-        # TODO : 检测到kat退出，则强制结束run_test进程
-        # TODO： 检测xtest/kat是否运行
-        # cat_log = Process(target=adb_command, kwargs={'command': 'shell tail -f /sdcard/kat/Result/Log.txt',
-        #                                               'timeout': params.get('time_out')},daemon=False)
-        # cat_log.start()
-        # adb_shell_tail('/sdcard/kat/Result/Log.txt', timeout=params.get('time_out'))
-        # adb_cmd(command='shell "tail -f /sdcard/kat/Result/Log.txt"', time_out=params.get('time_out'),
-        #         is_daemon=True, pre_sleep=10)
-        # start = time.time()
-        # params.get("remote_path")
-        # remote_result_path = os.path.join(params.get("remote_path"), 'Result')
-        # logfile = adb_cmd('shell cat '.format(os.path.join(remote_result_path, 'Log.txt'))).decode()
-        # logfile_pos = 0
-        # error_file = adb_cmd('shell cat '.format(os.path.join(remote_result_path, 'Log.txt'))).decode()
-        # error_file_pos = 0
-        # while time.time() - start < params.get('time_out'):
-        #     with open(logfile, 'r') as log_f:
-        #         log_f.seek(logfile_pos, 0)
-        #         for line in log_f:
-        #             print('[Log.txt]{0}'.format(line))
-        #         else:
-        #             logfile_pos = log_f.tell()
-        #     with open(error_file, 'r') as error_f:
-        #         error_f.seek(error_file_pos, 0)
-        #         for line in error_f:
-        #             print('[error.txt]{0}'.format(line))
-        #         else:
-        #             error_file_pos = error_f.tell()
+        run_test = threading.Thread(target=adb_cmd, kwargs={'command': command, 'time_out': params.get('time_out')},
+                                    daemon=True)
+        run_test.start()
+        cat_log = threading.Thread(target=show_log_and_error, args=(params,), daemon=True)
+        cat_log.start()
 
 
 class DoctorCommand(sublime_plugin.TextCommand):
