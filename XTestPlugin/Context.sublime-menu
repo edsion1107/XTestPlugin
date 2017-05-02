@@ -2,9 +2,9 @@
     "caption": "XTestPlugin",
     "id": "XTestPlugin-main",
     "children": [{
-        "id": "example",
-        "caption": "example_command",
-        "command": "example"
+        "id": "autotest",
+        "caption": "运行XTest/KAT",
+        "command": "autotest"
     }, {
         "id": "doctor",
         "caption": "环境检查",
