@@ -1,9 +1,7 @@
 {
   // adb路径，当路径无效时，使用内置adb
   "adb": "",
-  /*
-      push和pull时，支持使用文件名的黑白名单（使用正则表达式），且白名单优先级更高
-  */
+  // push和pull时，支持使用文件名的黑白名单（使用正则表达式），且白名单优先级更高
   "files_white_list": [
     ".lua$",
     ".apk$",
@@ -31,13 +29,22 @@
     //脚本路径（手机端）
     "remote_path": "/sdcard/kat/",
     //脚本运行最大时长
-    "time_out": 3600
+    "time_out": 3600,
+    //脚本执行前是否重启adb
+    "restart_adb": true,
+    //脚本执行前是否执行清理动作（清理前面定义的remote_path路径）
+    "cleanup_every_time": true,
+    //等待XTest启动的时长
+    "waiting_for_start": 10
   },
   "kat": {
     "package_name": "com.kunpeng.kapalai.kat",
     "class": "com.kunpeng.kat.base.TestMainInstrumentation",
     "activity": "com.kunpeng.kat.base.KatInstrumentationTestRunner",
     "remote_path": "/sdcard/kat/",
-    "time_out": 3600
+    "time_out": 3600,
+    "restart_adb": true,
+    "cleanup_every_time": true,
+    "waiting_for_start": 10
   }
 }
